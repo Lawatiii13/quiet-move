@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Chess } from 'chess.js'
 import { Board, PieceArt, cls } from './Board'
 import { GRADES, fmtClock, material, other, type Color, type Grade } from '../lib/game'
@@ -59,6 +59,7 @@ function Strip({ side, area, taken, lead }: { side: Side; area: string; taken: s
 type Props = {
   title: string
   chess: Chess
+  /** Passed so the layout re-renders when the position changes. */
   fen: string
   orientation: Color
   movable?: Color | null
@@ -78,12 +79,31 @@ type Props = {
   children: ReactNode
 }
 
-export function GameLayout({ title, chess, fen, orientation, movable, onMove, top, bottom, idle, evalWhite, marks, badge, arrow, announce, children }: Props) {
+export function GameLayout({ title, chess, orientation, movable, onMove, top, bottom, idle, evalWhite, marks, badge, arrow, announce, children }: Props) {
   useTitle(title)
   const sans = chess.history()
   const rows: string[][] = []
   for (let i = 0; i < sans.length; i += 2) rows.push(sans.slice(i, i + 2))
-  const mat = material(chess)
+  const [flipped, setFlipped] = useState(false)
+  // Which position is on the board: null follows the game, a number shows it after that many half-moves.
+  const [view, setView] = useState<number | null>(null)
+  const at = view !== null && view < sans.length ? view : null
+  useEffect(() => { if (view !== null && view >= sans.length) setView(null) }, [view, sans.length])
+  const past = useMemo(() => {
+    if (at === null) return null
+    const c = new Chess()
+    try { for (const san of sans.slice(0, at)) c.move(san) } catch { return null }
+    return c
+  }, [at, sans.length])
+  const shown = past ?? chess
+  const cur = past ? at! : sans.length
+  const step = (n: number) => setView(Math.max(0, Math.min(sans.length, n)))
+  const lastShown = shown.history({ verbose: true }).at(-1)
+  const pastGrade = past && cur > 0 ? marks?.[cur - 1] : undefined
+
+  const o = flipped ? other(orientation) : orientation
+  const [upper, lower] = flipped ? [bottom, top] : [top, bottom]
+  const mat = material(shown)
   const sheet = useRef<HTMLOListElement>(null)
   useEffect(() => { sheet.current?.scrollTo({ top: sheet.current.scrollHeight }) }, [sans.length])
 
@@ -92,31 +112,63 @@ export function GameLayout({ title, chess, fen, orientation, movable, onMove, to
       <div className="game-head">
         <h1>{title}</h1>
       </div>
-      {!idle && <Strip side={top} area="strip-top" {...mat[top.color]} />}
+      {!idle && <Strip side={upper} area="strip-top" {...mat[upper.color]} />}
       <div className="board-wrap">
         {evalWhite != null && (
-          <div className={cls('evalbar', orientation === 'b' && 'flip')} role="img" aria-label={`Engine estimate: White ${Math.round(evalWhite)} in 100`}>
+          <div className={cls('evalbar', o === 'b' && 'flip')} role="img" aria-label={`Engine estimate: White ${Math.round(evalWhite)} in 100`}>
             <i style={{ transform: `scaleY(${evalWhite / 100})` }} />
           </div>
         )}
-        <Board chess={chess} fen={fen} orientation={orientation} movable={movable} onMove={onMove ?? (() => {})} badge={badge} arrow={arrow} />
+        <Board
+          chess={shown}
+          fen={shown.fen()}
+          orientation={o}
+          movable={past ? null : movable}
+          onMove={onMove ?? (() => {})}
+          badge={past ? (pastGrade && lastShown ? { from: lastShown.from, to: lastShown.to, grade: pastGrade } : null) : badge}
+          arrow={past ? null : arrow}
+        />
       </div>
-      {!idle && <Strip side={bottom} area="strip-bottom" {...mat[bottom.color]} />}
+      {!idle && <Strip side={lower} area="strip-bottom" {...mat[lower.color]} />}
       <section className="panel" aria-label="Game status and actions">{children}</section>
       {!idle && <section className="moves" aria-labelledby="moves-title">
         <h2 id="moves-title">Moves</h2>
-        <ol className="sheet" ref={sheet} tabIndex={0} aria-label="Move list">
+        <ol
+          className="sheet"
+          ref={sheet}
+          tabIndex={0}
+          aria-label="Move list. Left and right arrow keys step through the game."
+          onKeyDown={e => { if (e.key === 'ArrowLeft') step(cur - 1); else if (e.key === 'ArrowRight') step(cur + 1) }}
+        >
           {rows.length === 0 && <li className="sheet-empty">No moves yet. White moves first.</li>}
           {rows.map((r, i) => (
             <li key={i}>
               <span className="n">{i + 1}.</span>
               {r.map((san, j) => {
-                const g = marks?.[i * 2 + j]
-                return <span key={j}>{san}{g && <b className={`chip g-${g}`} title={GRADES[g].label}>{GRADES[g].glyph}<span className="sr-only"> {GRADES[g].label}</span></b>}</span>
+                const k = i * 2 + j
+                const g = marks?.[k]
+                return (
+                  <button key={j} type="button" className={cls('ply', cur === k + 1 && 'on')} aria-current={cur === k + 1 ? 'step' : undefined} onClick={() => step(k + 1)}>
+                    {san}
+                    {g && <b className={`chip g-${g}`} title={GRADES[g].label}>{GRADES[g].glyph}<span className="sr-only"> {GRADES[g].label}</span></b>}
+                  </button>
+                )
               })}
             </li>
           ))}
         </ol>
+        <div className="row ply-nav">
+          <button type="button" className="btn secondary" aria-disabled={cur === 0} onClick={() => step(cur - 1)}>Previous move</button>
+          <button type="button" className="btn secondary" aria-disabled={!past} onClick={() => step(cur + 1)}>Next move</button>
+          <button type="button" className="btn quiet" aria-pressed={flipped} onClick={() => setFlipped(!flipped)}>Flip the board</button>
+        </div>
+        {past && (
+          <p className="note viewing">
+            This is an earlier position, after {cur === 0 ? 'no moves' : `${Math.ceil(cur / 2)}${cur % 2 ? '.' : '...'} ${sans[cur - 1]}`}.{' '}
+            <button type="button" className="btn quiet" onClick={() => setView(null)}>Go to the current position</button>
+          </p>
+        )}
+        <p className="hint mouse-only">Right-click a square to mark it, right-drag to draw an arrow. A left click clears your marks.</p>
       </section>}
       <p className="sr-only" aria-live="polite">{announce}</p>
     </main>

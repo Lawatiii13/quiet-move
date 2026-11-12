@@ -15,14 +15,14 @@ export function PieceArt({ color, type }: { color: string; type: string }) {
   )
 }
 
-function Arrow({ from, to }: { from: number[]; to: number[] }) {
+function Arrow({ from, to, kind }: { from: number[]; to: number[]; kind: 'coach' | 'user' }) {
   const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1
   // stop short of the centre so the head lands inside the square
   const x2 = to[0] + 0.5 - (dx / len) * 0.3, y2 = to[1] + 0.5 - (dy / len) * 0.3
   return (
-    <svg key={`${from}${to}`} className="arrow" viewBox="0 0 8 8">
-      <defs><marker id="arrow-head" markerWidth="3" markerHeight="3" refX="1.4" refY="1.5" orient="auto"><path d="M0,0 L3,1.5 L0,3 Z" /></marker></defs>
-      <line x1={from[0] + 0.5} y1={from[1] + 0.5} x2={x2} y2={y2} markerEnd="url(#arrow-head)" />
+    <svg className={`arrow ${kind}`} viewBox="0 0 8 8">
+      <defs><marker id={`arrow-head-${kind}`} markerWidth="3" markerHeight="3" refX="1.4" refY="1.5" orient="auto"><path d="M0,0 L3,1.5 L0,3 Z" /></marker></defs>
+      <line x1={from[0] + 0.5} y1={from[1] + 0.5} x2={x2} y2={y2} markerEnd={`url(#arrow-head-${kind})`} />
     </svg>
   )
 }
@@ -62,6 +62,12 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
   const boardRef = useRef<HTMLDivElement>(null)
   const promoRef = useRef<HTMLDialogElement>(null)
   const down = useRef<{ from: string; x: number; y: number } | null>(null)
+  // The player's own notes, made with the right mouse button: arrows, marked squares, and the arrow being drawn.
+  const [drawn, setDrawn] = useState<[string, string][]>([])
+  const [rings, setRings] = useState<string[]>([])
+  const [sketch, setSketch] = useState<[string, string] | null>(null)
+  const rightDown = useRef<string | null>(null)
+  useEffect(() => { setDrawn([]); setRings([]); setSketch(null) }, [fen])
 
   const canMove = !!onMove && movable !== null && movable === chess.turn() && !chess.isGameOver()
   const last = chess.history({ verbose: true }).at(-1)
@@ -107,12 +113,22 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
   }
 
   function onPointerDown(e: PointerEvent) {
+    if (e.button === 2) {
+      rightDown.current = locate(e).sq
+      if (rightDown.current) boardRef.current!.setPointerCapture(e.pointerId)
+      return
+    }
+    if (e.button === 0 && (drawn.length || rings.length)) { setDrawn([]); setRings([]) }
     if (!canMove || e.button !== 0) return
     const { x, y, sq } = locate(e)
     const p = sq && chess.get(sq as Square)
     down.current = sq && p && p.color === movable ? { from: sq, x, y } : null
   }
   function onPointerMove(e: PointerEvent) {
+    if (rightDown.current) {
+      const { sq } = locate(e)
+      return setSketch(sq && sq !== rightDown.current ? [rightDown.current, sq] : null)
+    }
     const d = down.current
     if (!d) return
     const { x, y, size } = locate(e)
@@ -124,6 +140,15 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
     setDrag({ from: d.from, x, y, size })
   }
   function onPointerUp(e: PointerEvent) {
+    if (e.button === 2 && rightDown.current) {
+      const a = rightDown.current, { sq } = locate(e)
+      rightDown.current = null
+      setSketch(null)
+      // The same note made twice is removed again.
+      if (sq === a) setRings(r => (r.includes(a) ? r.filter(s => s !== a) : [...r, a]))
+      else if (sq) setDrawn(d => (d.some(([f, t]) => f === a && t === sq) ? d.filter(([f, t]) => !(f === a && t === sq)) : [...d, [a, sq]]))
+      return
+    }
     const d = down.current
     down.current = null
     if (!d || !drag) return
@@ -195,7 +220,8 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
-      onPointerCancel={() => { down.current = null; setDrag(null) }}
+      onPointerCancel={() => { down.current = null; rightDown.current = null; setDrag(null); setSketch(null) }}
+      onContextMenu={e => e.preventDefault()}
     >
       {squares}
       <div className="pieces" aria-hidden="true">
@@ -219,7 +245,9 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
         {last?.captured && <i key={`hit${plies}`} className="fx burst" style={fxAt(last.to)} />}
         {checkSq && <i key={`chk${plies}`} className="fx alarm" style={fxAt(checkSq)} />}
         {badge && <i key={`${badge.to}${badge.grade}${plies}`} className={`mark g-${badge.grade}`} style={fxAt(badge.to)}><b>{badge.glyph ?? GRADES[badge.grade].glyph}</b></i>}
-        {arrow && <Arrow from={xy(arrow[0], orientation)} to={xy(arrow[1], orientation)} />}
+        {arrow && <Arrow key={arrow.join()} kind="coach" from={xy(arrow[0], orientation)} to={xy(arrow[1], orientation)} />}
+        {rings.map(s => <i key={`ring${s}`} className="fx ring" style={fxAt(s)} />)}
+        {[...drawn, ...(sketch ? [sketch] : [])].map(([f, t], i) => <Arrow key={i} kind="user" from={xy(f, orientation)} to={xy(t, orientation)} />)}
       </div>
       {onMove && (
         <dialog ref={promoRef} className="dialog" aria-labelledby="promo-title" onClose={() => setPromo(null)}>

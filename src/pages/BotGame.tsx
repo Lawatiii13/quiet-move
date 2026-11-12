@@ -38,6 +38,7 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   const [seen, setSeen] = useState<Record<string, { best: string; pct: number }>>({})
   const [arrow, setArrow] = useState<[string, string] | null>(null)
   const lastEval = useRef(50)
+  const [review, setReview] = useState(false)
   const level = BOTS.find(b => b.id === botId)!
   const myTurn = game.chess.turn() === color
 
@@ -56,6 +57,7 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
     boot()
     if (coach) analyst.current ??= startAnalyst()
     setSeen({})
+    setReview(false)
     setPhase('play')
     play('start')
   }
@@ -104,7 +106,7 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   const marks = moves.map(m => {
     const before = seen[m.before]
     const after = seen[m.after]?.pct ?? finished(m.after)
-    return coach && m.color === color && before && after !== null ? gradeMove(before.pct, 100 - after, m.lan === before.best) : undefined
+    return (coach || review) && m.color === color && before && after !== null ? gradeMove(before.pct, 100 - after, m.lan === before.best) : undefined
   })
   const mine = moves.findLastIndex(m => m.color === color)
   const judged = mine >= 0 ? moves[mine] : null
@@ -116,6 +118,18 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   const counts = (Object.keys(GRADES) as Grade[]).map(g => [g, marks.filter(m => m === g).length] as const)
 
   useEffect(() => { if (grade) play(grade) }, [judged?.after, grade])
+
+  // Review: after the game, have the coach look at every position it has not seen yet.
+  const mineCount = moves.filter(m => m.color === color).length
+  const graded = marks.filter(Boolean).length
+  useEffect(() => {
+    if (!review) return
+    analyst.current ??= startAnalyst()
+    for (const fen of new Set(moves.flatMap(m => [m.before, m.after]))) {
+      if (seen[fen] || finished(fen) !== null) continue
+      analyst.current.analyse(fen).then(r => { if (r.score) setSeen(s => ({ ...s, [fen]: { best: r.best, pct: winPct(r.score!) } })) }, () => {})
+    }
+  }, [review])
 
   function takeBack(showBest: boolean) {
     if (!judged) return
@@ -221,7 +235,9 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
       {result && (
         <div className="result">
           <p className="result-text">{resultText(result)}</p>
-          {coach && (
+          {review && graded < mineCount && <p className="status"><span className="busy" aria-hidden="true" />The coach has graded {graded} of your {mineCount} moves.</p>}
+          {review && graded === mineCount && <p className="hint">Select a move in the list to see it on the board with its grade.</p>}
+          {(coach || review) && (
             <p className="tally">
               {counts.map(([g, n]) => <span key={g}><b className={`chip g-${g}`}>{GRADES[g].glyph}</b> {n} {TALLY[g][n === 1 ? 0 : 1]}</span>)}
             </p>
@@ -232,6 +248,7 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
           {!user && !coach && <p className="hint"><Link to="/signup">Create an account</Link> to keep your results.</p>}
           <div className="row">
             <button type="button" className="btn primary" onClick={start}>Play again</button>
+            {!coach && !review && mineCount > 0 && <button type="button" className="btn secondary" onClick={() => setReview(true)}>Review the game</button>}
             <button type="button" className="btn secondary" onClick={() => { game.reset(); setResult(null); setPhase('setup') }}>Change opponent</button>
           </div>
         </div>
