@@ -79,6 +79,12 @@ const SOUNDS = {
   error: () => tone(180, 0.2, { type: 'sawtooth', gain: 0.06, to: 110 }),
   success: () => run([659, 988], 0.09, { type: 'triangle' }),
   on: () => tone(440, 0.15, { type: 'triangle', to: 880 }),
+  // The coach's verdicts, from brightest to darkest.
+  best: () => run([784, 1175], 0.08, { type: 'triangle', gain: 0.13 }),
+  good: () => tone(784, 0.12, { type: 'triangle', gain: 0.09 }),
+  inaccuracy: () => tone(466, 0.16, { gain: 0.1 }),
+  mistake: () => run([415, 330], 0.11, { gain: 0.11 }),
+  blunder: () => { tone(220, 0.3, { type: 'sawtooth', gain: 0.07, to: 80 }); knock(0, 0.5, 0.5) },
 }
 export type SoundName = keyof typeof SOUNDS
 

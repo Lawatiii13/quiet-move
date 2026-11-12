@@ -80,6 +80,48 @@ export function moveSounds(m: { san: string; captured?: string; promotion?: stri
   return out
 }
 
+export type Grade = 'best' | 'good' | 'inaccuracy' | 'mistake' | 'blunder'
+export const GRADES: Record<Grade, { label: string; glyph: string }> = {
+  best: { label: 'Best move', glyph: '!' },
+  good: { label: 'Good move', glyph: '✓' },
+  inaccuracy: { label: 'Inaccuracy', glyph: '?!' },
+  mistake: { label: 'Mistake', glyph: '?' },
+  blunder: { label: 'Blunder', glyph: '??' },
+}
+
+/** Chance of winning, 0 to 100, for the side the score belongs to. The curve is the one Lichess publishes. */
+export function winPct(s: { cp?: number; mate?: number }) {
+  if (s.mate !== undefined) return s.mate > 0 ? 100 : 0
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * (s.cp ?? 0))) - 1)
+}
+
+/**
+ * Grade a move by how much winning chance it gave away, both numbers seen from the mover's side.
+ * The cut-offs (1, 5, 10 and 20 points) are this site's own choice, not a standard.
+ */
+export function gradeMove(before: number, after: number, playedBest: boolean): Grade {
+  const lost = before - after
+  if (playedBest || lost <= 1) return 'best'
+  if (lost < 5) return 'good'
+  if (lost < 10) return 'inaccuracy'
+  if (lost < 20) return 'mistake'
+  return 'blunder'
+}
+
+const START_COUNT: Record<string, number> = { p: 8, n: 2, b: 2, r: 2, q: 1 }
+const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9 }
+/** Pieces each side has captured, and how many points ahead that side is (0 or less = not ahead). */
+export function material(chess: Chess) {
+  const have: Record<Color, Record<string, number>> = { w: {}, b: {} }
+  for (const p of piecesOf(chess)) have[p.color][p.type] = (have[p.color][p.type] ?? 0) + 1
+  const points = (c: Color) => Object.keys(VALUE).reduce((n, t) => n + VALUE[t] * (have[c][t] ?? 0), 0)
+  const side = (c: Color) => ({
+    taken: Object.keys(START_COUNT).flatMap(t => Array(Math.max(0, START_COUNT[t] - (have[other(c)][t] ?? 0))).fill(t) as string[]),
+    lead: points(c) - points(other(c)),
+  })
+  return { w: side('w'), b: side('b') }
+}
+
 export type Piece = { id: number; type: string; color: Color; square: string; gone?: boolean }
 let nextId = 1
 

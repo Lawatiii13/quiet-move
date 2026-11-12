@@ -1,7 +1,7 @@
 import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Chess } from 'chess.js'
-import { Board, cls } from './Board'
-import { fmtClock, type Color } from '../lib/game'
+import { Board, PieceArt, cls } from './Board'
+import { GRADES, fmtClock, material, other, type Color, type Grade } from '../lib/game'
 import { play } from '../lib/sound'
 
 export function useTitle(title: string) {
@@ -24,18 +24,28 @@ export function useChess(initial?: string[]) {
       try { const r = chess.move(m); refresh(); return r } catch { return null }
     },
     reset() { chess.reset(); refresh() },
+    undo() { chess.undo(); refresh() },
+    load(fen: string) { chess.load(fen); refresh() },
   }
 }
 
 export type Side = { name: string; color: Color; clock?: number; running?: boolean; note?: string }
 
-function Strip({ side, area }: { side: Side; area: string }) {
+const PIECE_WORD: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen' }
+
+function Strip({ side, area, taken, lead }: { side: Side; area: string; taken: string[]; lead: number }) {
   return (
     <div className={cls('strip', area)}>
       <span className={cls('disc', side.color)} aria-hidden="true" />
       <span className="strip-name">
         {side.name}
         <span className="meta">{side.color === 'w' ? 'White' : 'Black'}{side.note ? ` · ${side.note}` : ''}</span>
+        {taken.length > 0 && (
+          <span className="taken" role="img" aria-label={`Captured: ${taken.map(t => PIECE_WORD[t]).join(', ')}${lead > 0 ? `. Ahead by ${lead}` : ''}`}>
+            {taken.map((t, i) => <PieceArt key={i} color={other(side.color)} type={t} />)}
+            {lead > 0 && <b>+{lead}</b>}
+          </span>
+        )}
       </span>
       {side.clock !== undefined && (
         <span className={cls('clock', side.running && 'running', side.running && side.clock < 30000 && 'low')} role="timer" aria-label={`${side.name} clock`}>
@@ -57,16 +67,23 @@ type Props = {
   bottom: Side
   /** Before a game exists: show only the board and the panel. */
   idle?: boolean
+  /** White's winning chance, 0 to 100, drawn as a bar beside the board. */
+  evalWhite?: number | null
+  /** A grade for each half-move, by its index in the move list. */
+  marks?: (Grade | undefined)[]
+  badge?: { from: string; to: string; grade: Grade; glyph?: string } | null
+  arrow?: [string, string] | null
   /** Read out to screen readers when it changes. */
   announce?: string
   children: ReactNode
 }
 
-export function GameLayout({ title, chess, fen, orientation, movable, onMove, top, bottom, idle, announce, children }: Props) {
+export function GameLayout({ title, chess, fen, orientation, movable, onMove, top, bottom, idle, evalWhite, marks, badge, arrow, announce, children }: Props) {
   useTitle(title)
   const sans = chess.history()
   const rows: string[][] = []
   for (let i = 0; i < sans.length; i += 2) rows.push(sans.slice(i, i + 2))
+  const mat = material(chess)
   const sheet = useRef<HTMLOListElement>(null)
   useEffect(() => { sheet.current?.scrollTo({ top: sheet.current.scrollHeight }) }, [sans.length])
 
@@ -75,11 +92,16 @@ export function GameLayout({ title, chess, fen, orientation, movable, onMove, to
       <div className="game-head">
         <h1>{title}</h1>
       </div>
-      {!idle && <Strip side={top} area="strip-top" />}
+      {!idle && <Strip side={top} area="strip-top" {...mat[top.color]} />}
       <div className="board-wrap">
-        <Board chess={chess} fen={fen} orientation={orientation} movable={movable} onMove={onMove ?? (() => {})} />
+        {evalWhite != null && (
+          <div className={cls('evalbar', orientation === 'b' && 'flip')} role="img" aria-label={`Engine estimate: White ${Math.round(evalWhite)} in 100`}>
+            <i style={{ transform: `scaleY(${evalWhite / 100})` }} />
+          </div>
+        )}
+        <Board chess={chess} fen={fen} orientation={orientation} movable={movable} onMove={onMove ?? (() => {})} badge={badge} arrow={arrow} />
       </div>
-      {!idle && <Strip side={bottom} area="strip-bottom" />}
+      {!idle && <Strip side={bottom} area="strip-bottom" {...mat[bottom.color]} />}
       <section className="panel" aria-label="Game status and actions">{children}</section>
       {!idle && <section className="moves" aria-labelledby="moves-title">
         <h2 id="moves-title">Moves</h2>
@@ -88,8 +110,10 @@ export function GameLayout({ title, chess, fen, orientation, movable, onMove, to
           {rows.map((r, i) => (
             <li key={i}>
               <span className="n">{i + 1}.</span>
-              <span>{r[0]}</span>
-              {r[1] && <span>{r[1]}</span>}
+              {r.map((san, j) => {
+                const g = marks?.[i * 2 + j]
+                return <span key={j}>{san}{g && <b className={`chip g-${g}`} title={GRADES[g].label}>{GRADES[g].glyph}<span className="sr-only"> {GRADES[g].label}</span></b>}</span>
+              })}
             </li>
           ))}
         </ol>

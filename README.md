@@ -32,6 +32,13 @@ No server replays the moves. Each player's browser reports the result it saw, an
 
 This is enough for personal win and loss totals. It is not enough for ratings or a leaderboard: add a server-side arbiter (an Edge Function that validates each move) before building those.
 
+## Train
+
+The Train tab has two parts.
+
+- **Lessons** (`src/lib/lessons.ts`): 18 short lessons in three chapters, from naming the squares to basic checkmates. Each step is a position with a text, and most ask for a move on the board. `src/lib/lessons.test.ts` checks every position and answer with chess.js: the positions are legal, the accepted moves exist, and the mates are mates. Finished lessons are remembered in the browser, so no account is needed.
+- **Coach** (`/train/coach`): a bot game in which a second, full-strength Stockfish searches every position 12 half-moves deep. Each of your moves gets a grade from how much winning chance it gave away: best (up to 1 point of 100), good (under 5), inaccuracy (under 10), mistake (under 20), blunder (20 or more). The cut-offs are this site's own choice. The coach also offers a hint, a take-back, and an evaluation bar. Coach games are not saved to stats.
+
 ## Motion and sound
 
 Motion is full by default: pieces are dealt onto the board, moves land with a bounce, captures burst, a win throws confetti, and pages, tables and forms animate in. Sounds are synthesised in `src/lib/sound.ts` with Web Audio, so there are no audio files.
@@ -45,7 +52,7 @@ A visitor whose device asks for reduced motion starts in calm mode, where nothin
 
 ## Not built
 
-Password reset, ratings, chat, spectating, rematch, game review, hover sounds, and time controls other than 10 minutes each. Bot games have no clock.
+Password reset, ratings, puzzles, review of finished games, chat, spectating, rematch, hover sounds, and time controls other than 10 minutes each. Bot games have no clock.
 
 ## Licences
 

@@ -44,6 +44,7 @@ function Demo() {
 
 const TITLE = 'A quiet room for a game of chess.'
 const ROWS: [string, boolean][] = [
+  ['Lessons, and a coach that grades your moves', true],
   ['Play three bots, from beginner to full engine', true],
   ['Get paired with someone online, 10 minutes each', true],
   ['Duel a friend by sending a link', false],
@@ -61,13 +62,14 @@ export default function Home() {
             {TITLE.split(' ').map((w, i) => <span key={i} aria-hidden="true" className="word" style={{ '--i': i } as CSSProperties}>{w} </span>)}
           </h1>
           <p className="lede">
-            Play a bot now, get paired with whoever is online, or send a friend a link.
-            The first two need no account.
+            Learn the game, play a bot, get paired with whoever is online, or send a friend a link.
+            Only the last needs an account.
           </p>
           <div className="row stagger">
             <Link className="btn primary" to="/play/bot">Play a bot</Link>
             <Link className="btn secondary" to="/play/quick">Find an opponent</Link>
             <Link className="btn secondary" to="/duel/new">Duel a friend</Link>
+            <Link className="btn secondary" to="/train">Learn to play</Link>
           </div>
         </div>
         <Demo />

@@ -15,6 +15,7 @@ import QuickMatch from './pages/QuickMatch'
 import NetGame, { NewDuel } from './pages/NetGame'
 import Auth from './pages/Auth'
 import Stats from './pages/Stats'
+import Train, { LessonPage } from './pages/Train'
 
 function NotFound() {
   useTitle('Page not found')
@@ -40,8 +41,11 @@ function App() {
         <Shell>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/play/bot" element={<BotGame />} />
+            <Route path="/play/bot" element={<BotGame key="bot" />} />
             <Route path="/play/quick" element={<QuickMatch />} />
+            <Route path="/train" element={<Train />} />
+            <Route path="/train/coach" element={<BotGame key="coach" coach />} />
+            <Route path="/train/:id" element={<LessonPage />} />
             <Route path="/duel/new" element={<NewDuel />} />
             <Route path="/game/:id" element={<NetGame />} />
             <Route path="/login" element={<Auth mode="login" />} />

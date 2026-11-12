@@ -51,10 +51,14 @@ export function Shell({ children }: { children: ReactNode }) {
       <header className="top">
         <div className="top-in">
           <Link to="/" className="wordmark">Quiet Move</Link>
-          <nav aria-label="Main">
+          <nav aria-label="Main" className="tabs">
+            <NavLink to="/" end className="nav-link">Play</NavLink>
+            <NavLink to="/train" className="nav-link">Train</NavLink>
+            <NavLink to="/stats" className="nav-link">Stats</NavLink>
+          </nav>
+          <nav aria-label="Account" className="account">
             {!loading && user && (
               <>
-                <NavLink to="/stats" className="nav-link">Stats</NavLink>
                 <span className="who">{name}</span>
                 <button type="button" className="nav-link" onClick={() => { navigate('/'); supabase.auth.signOut() }}>Log out</button>
               </>

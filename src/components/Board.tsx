@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import type { Chess, Square } from 'chess.js'
-import { type Color, type Piece, moveSounds, piecesOf, reconcile } from '../lib/game'
+import { GRADES, type Color, type Grade, type Piece, moveSounds, piecesOf, reconcile } from '../lib/game'
 import { play } from '../lib/sound'
 
 const FILES = 'abcdefgh'
@@ -11,6 +11,18 @@ export function PieceArt({ color, type }: { color: string; type: string }) {
   return (
     <svg viewBox="0 0 40 40" aria-hidden="true">
       <use href={`${import.meta.env.BASE_URL}pieces.svg#${color}${type}`} />
+    </svg>
+  )
+}
+
+function Arrow({ from, to }: { from: number[]; to: number[] }) {
+  const dx = to[0] - from[0], dy = to[1] - from[1], len = Math.hypot(dx, dy) || 1
+  // stop short of the centre so the head lands inside the square
+  const x2 = to[0] + 0.5 - (dx / len) * 0.3, y2 = to[1] + 0.5 - (dy / len) * 0.3
+  return (
+    <svg key={`${from}${to}`} className="arrow" viewBox="0 0 8 8">
+      <defs><marker id="arrow-head" markerWidth="3" markerHeight="3" refX="1.4" refY="1.5" orient="auto"><path d="M0,0 L3,1.5 L0,3 Z" /></marker></defs>
+      <line x1={from[0] + 0.5} y1={from[1] + 0.5} x2={x2} y2={y2} markerEnd="url(#arrow-head)" />
     </svg>
   )
 }
@@ -31,9 +43,13 @@ type Props = {
   label?: string
   /** Set false for a board that plays by itself, so it stays quiet. */
   sound?: boolean
+  /** A verdict on a move: tints its two squares and pins a glyph to the corner of the landing square. */
+  badge?: { from: string; to: string; grade: Grade; glyph?: string } | null
+  /** An arrow from one square to another. */
+  arrow?: [string, string] | null
 }
 
-export function Board({ chess, fen, orientation, movable = null, onMove, label, sound = true }: Props) {
+export function Board({ chess, fen, orientation, movable = null, onMove, label, sound = true, badge, arrow }: Props) {
   // Recomputed once per position; see reconcile() for why pieces need stable identities.
   const store = useRef<{ fen: string; pieces: Piece[] }>({ fen: '', pieces: [] })
   if (store.current.fen !== fen) store.current = { fen, pieces: reconcile(store.current.pieces, piecesOf(chess)) }
@@ -144,6 +160,7 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
         (sq === last?.from || sq === last?.to) && 'last',
         targets.has(sq) && (targets.get(sq) ? 'capture' : 'target'),
         sq === checkSq && 'check',
+        badge && (sq === badge.from || sq === badge.to) && `g-${badge.grade}`,
       )
       const coords = { 'data-file': y === 7 ? sq[0] : undefined, 'data-rank': x === 0 ? sq[1] : undefined }
       if (!onMove) {
@@ -201,6 +218,8 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label, 
         })}
         {last?.captured && <i key={`hit${plies}`} className="fx burst" style={fxAt(last.to)} />}
         {checkSq && <i key={`chk${plies}`} className="fx alarm" style={fxAt(checkSq)} />}
+        {badge && <i key={`${badge.to}${badge.grade}${plies}`} className={`mark g-${badge.grade}`} style={fxAt(badge.to)}><b>{badge.glyph ?? GRADES[badge.grade].glyph}</b></i>}
+        {arrow && <Arrow from={xy(arrow[0], orientation)} to={xy(arrow[1], orientation)} />}
       </div>
       {onMove && (
         <dialog ref={promoRef} className="dialog" aria-labelledby="promo-title" onClose={() => setPromo(null)}>
