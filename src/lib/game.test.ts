@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js'
 import { expect, test } from 'vitest'
-import { boardResult, fmtClock, outcome, piecesOf, reconcile, type GameRow } from './game'
+import { boardResult, fmtClock, moveSounds, outcome, piecesOf, reconcile, type GameRow } from './game'
 import { OPERA_GAME } from './opera'
 
 const row = (o: Partial<GameRow>): GameRow => ({
@@ -47,6 +47,14 @@ test('the Opera Game replays legally, ends in mate, and pieces keep their identi
   // 16. Qb8+ Nxb8: the queen that started on d1 is the piece captured on b8
   expect(pieces.find(p => p.id === whiteQueen)).toBeUndefined()
   expect(new Set(pieces.map(p => p.id)).size).toBe(pieces.length)
+})
+
+test('each kind of move gets its own sounds', () => {
+  expect(moveSounds({ san: 'e4' })).toEqual(['move'])
+  expect(moveSounds({ san: 'Bxb5+', captured: 'p' })).toEqual(['capture', 'check'])
+  expect(moveSounds({ san: 'O-O-O' })).toEqual(['castle'])
+  expect(moveSounds({ san: 'gxh8=Q+', captured: 'r', promotion: 'q' })).toEqual(['capture', 'promote', 'check'])
+  expect(moveSounds({ san: 'Rd8#' })).toEqual(['move', 'check'])
 })
 
 test('promotion turns the pawn into the new piece instead of spawning one', () => {

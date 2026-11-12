@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react'
 import type { Chess, Square } from 'chess.js'
-import { type Color, type Piece, piecesOf, reconcile } from '../lib/game'
+import { type Color, type Piece, moveSounds, piecesOf, reconcile } from '../lib/game'
+import { play } from '../lib/sound'
 
 const FILES = 'abcdefgh'
 const NAMES: Record<string, string> = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' }
@@ -28,9 +29,11 @@ type Props = {
   movable?: Color | null
   onMove?: (m: { from: string; to: string; promotion?: string }) => void
   label?: string
+  /** Set false for a board that plays by itself, so it stays quiet. */
+  sound?: boolean
 }
 
-export function Board({ chess, fen, orientation, movable = null, onMove, label }: Props) {
+export function Board({ chess, fen, orientation, movable = null, onMove, label, sound = true }: Props) {
   // Recomputed once per position; see reconcile() for why pieces need stable identities.
   const store = useRef<{ fen: string; pieces: Piece[] }>({ fen: '', pieces: [] })
   if (store.current.fen !== fen) store.current = { fen, pieces: reconcile(store.current.pieces, piecesOf(chess)) }
@@ -55,6 +58,13 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label }
 
   useEffect(() => { setSelected(null); setDrag(null); down.current = null }, [fen, canMove])
   useEffect(() => { if (promo) promoRef.current?.showModal() }, [promo])
+  // One sound per new move. A reset or a jump of several moves plays only the latest.
+  const plies = chess.history().length
+  const heard = useRef(plies)
+  useEffect(() => {
+    if (sound && plies > heard.current && last) moveSounds(last).forEach(play)
+    heard.current = plies
+  }, [plies])
   useEffect(() => setCursor(orientation === 'w' ? 'e2' : 'e7'), [orientation])
 
   function commit(from: string, to: string) {
@@ -68,7 +78,9 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label }
     if (!canMove) return
     if (selected && targets.has(sq)) return commit(selected, sq)
     const p = chess.get(sq as Square)
-    setSelected(p && p.color === movable && sq !== selected ? sq : null)
+    const pick = p && p.color === movable && sq !== selected ? sq : null
+    if (pick) play('select')
+    setSelected(pick)
   }
 
   function locate(e: PointerEvent) {
@@ -119,6 +131,8 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label }
   const at = new Map(pieces.filter(p => !p.gone).map(p => [p.square, p]))
   const checkSq = chess.inCheck() ? pieces.find(p => !p.gone && p.type === 'k' && p.color === chess.turn())?.square : null
 
+  const fxAt = (sq: string) => { const [x, y] = xy(sq, orientation); return { transform: `translate(${x * 100}%, ${y * 100}%)` } }
+
   const squares = []
   for (let y = 0; y < 8; y++) {
     for (let x = 0; x < 8; x++) {
@@ -158,7 +172,7 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label }
   return (
     <div
       ref={boardRef}
-      className="board"
+      className={cls('board', chess.isCheckmate() && 'mate')}
       role={onMove ? 'group' : 'img'}
       aria-label={label ?? 'Chess board'}
       onPointerDown={onPointerDown}
@@ -177,13 +191,16 @@ export function Board({ chess, fen, orientation, movable = null, onMove, label }
           return (
             <div
               key={p.id}
-              className={cls('piece', p.gone && 'gone', dragging && 'dragging', p.square === last?.to && 'moved')}
-              style={{ transform }}
+              className={cls('piece', p.gone && 'gone', dragging && 'dragging', p.square === last?.to && 'moved', !p.gone && p.square === selected && 'picked')}
+              style={{ transform, '--i': p.id % 32 } as CSSProperties}
             >
-              <PieceArt color={p.color} type={p.type} />
+              {/* .pose carries the state motion (landing, lifting, being captured); the art carries the deal-in. */}
+              <span className="pose"><PieceArt color={p.color} type={p.type} /></span>
             </div>
           )
         })}
+        {last?.captured && <i key={`hit${plies}`} className="fx burst" style={fxAt(last.to)} />}
+        {checkSq && <i key={`chk${plies}`} className="fx alarm" style={fxAt(checkSq)} />}
       </div>
       {onMove && (
         <dialog ref={promoRef} className="dialog" aria-labelledby="promo-title" onClose={() => setPromo(null)}>

@@ -8,6 +8,9 @@
     <script>
       // Set the saved theme before first paint so the page does not flash.
       try { document.documentElement.dataset.theme = localStorage.getItem('qm:theme') || 'light' } catch (e) {}
+      // Motion is full unless the device asks for less. The footer switch overrides either way.
+      var m = null; try { m = localStorage.getItem('qm:motion') } catch (e) {}
+      document.documentElement.dataset.motion = m || (matchMedia('(prefers-reduced-motion: reduce)').matches ? 'calm' : 'full')
     </script>
   </head>
   <body>

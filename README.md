@@ -32,6 +32,12 @@ No server replays the moves. Each player's browser reports the result it saw, an
 
 This is enough for personal win and loss totals. It is not enough for ratings or a leaderboard: add a server-side arbiter (an Edge Function that validates each move) before building those.
 
+## Motion and sound
+
+Motion is full by default: pieces are dealt onto the board, moves land with a bounce, captures burst, a win throws confetti, and pages, tables and forms animate in. Sounds are synthesised in `src/lib/sound.ts` with Web Audio, so there are no audio files.
+
+A visitor whose device asks for reduced motion starts in calm mode, where nothing slides, bounces or loops. The footer has switches for motion and sound, and each choice is remembered in the browser.
+
 ## Before going live
 
 1. In the Supabase dashboard, under Authentication, set the Site URL to the address the site is served from. Confirmation emails link to that address, and the default is `http://localhost:3000`.
@@ -39,7 +45,7 @@ This is enough for personal win and loss totals. It is not enough for ratings or
 
 ## Not built
 
-Password reset, ratings, chat, spectating, rematch, game review, sound, and time controls other than 10 minutes each. Bot games have no clock.
+Password reset, ratings, chat, spectating, rematch, game review, hover sounds, and time controls other than 10 minutes each. Bot games have no clock.
 
 ## Licences
 

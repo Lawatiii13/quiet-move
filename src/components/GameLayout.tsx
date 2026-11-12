@@ -2,6 +2,7 @@ import { useEffect, useReducer, useRef, useState, type ReactNode } from 'react'
 import { Chess } from 'chess.js'
 import { Board, cls } from './Board'
 import { fmtClock, type Color } from '../lib/game'
+import { play } from '../lib/sound'
 
 export function useTitle(title: string) {
   useEffect(() => { document.title = `${title} · Quiet Move` }, [title])
@@ -37,7 +38,7 @@ function Strip({ side, area }: { side: Side; area: string }) {
         <span className="meta">{side.color === 'w' ? 'White' : 'Black'}{side.note ? ` · ${side.note}` : ''}</span>
       </span>
       {side.clock !== undefined && (
-        <span className={cls('clock', side.running && 'running')} role="timer" aria-label={`${side.name} clock`}>
+        <span className={cls('clock', side.running && 'running', side.running && side.clock < 30000 && 'low')} role="timer" aria-label={`${side.name} clock`}>
           {fmtClock(side.clock)}
         </span>
       )}
@@ -88,7 +89,7 @@ export function GameLayout({ title, chess, fen, orientation, movable, onMove, to
             <li key={i}>
               <span className="n">{i + 1}.</span>
               <span>{r[0]}</span>
-              <span>{r[1] ?? ''}</span>
+              {r[1] && <span>{r[1]}</span>}
             </li>
           ))}
         </ol>
@@ -119,6 +120,7 @@ export function ConfirmDialog(p: { open: boolean; title: string; body: string; c
 
 export function ErrorNote({ children, detail, action }: { children: ReactNode; detail: string; action?: ReactNode }) {
   const [copied, setCopied] = useState(false)
+  useEffect(() => play('error'), [])
   const copy = () =>
     navigator.clipboard
       .writeText(`${detail} | ${location.href} | ${new Date().toISOString()} | ${navigator.userAgent}`)

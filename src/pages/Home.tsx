@@ -1,26 +1,30 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { Board } from '../components/Board'
 import { useChess, useTitle } from '../components/GameLayout'
 import { OPERA_GAME } from '../lib/opera'
 import { useAccount } from '../lib/supabase'
+import { Reveal, calm, tilt } from '../lib/motion'
 
 function Demo() {
   const game = useChess()
-  const [playing, setPlaying] = useState(() => !matchMedia('(prefers-reduced-motion: reduce)').matches)
+  const [playing, setPlaying] = useState(() => !calm())
+  const [byHand, setByHand] = useState(false) // sound only once the visitor has pressed the button
   const n = game.chess.history().length
   const done = n >= OPERA_GAME.length
 
   useEffect(() => {
     if (!playing) return
     if (done) return setPlaying(false)
-    const t = setTimeout(() => game.move(OPERA_GAME[n]), n === 0 ? 900 : 1300)
+    const t = setTimeout(() => game.move(OPERA_GAME[n]), n === 0 ? 1900 : 1300)
     return () => clearTimeout(t)
   }, [playing, n])
 
   return (
     <figure className="demo">
-      <Board chess={game.chess} fen={game.fen} orientation="w" label="Board replaying Morphy's Opera Game" />
+      <div className="tilt" {...tilt}>
+        <Board chess={game.chess} fen={game.fen} orientation="w" label="Board replaying Morphy's Opera Game" sound={byHand} />
+      </div>
       <figcaption>
         <p>
           <span className="sheet-n">{n ? `${Math.ceil(n / 2)}.${n % 2 ? '' : '..'} ${OPERA_GAME[n - 1]}` : 'Start'}</span>
@@ -29,7 +33,7 @@ function Demo() {
         <button
           type="button"
           className="btn secondary"
-          onClick={() => { if (done) game.reset(); setPlaying(done || !playing) }}
+          onClick={() => { if (done) game.reset(); setByHand(true); setPlaying(done || !playing) }}
         >
           {done ? 'Replay game' : playing ? 'Pause game' : n ? 'Resume game' : 'Play game'}
         </button>
@@ -38,6 +42,7 @@ function Demo() {
   )
 }
 
+const TITLE = 'A quiet room for a game of chess.'
 const ROWS: [string, boolean][] = [
   ['Play three bots, from beginner to full engine', true],
   ['Get paired with someone online, 10 minutes each', true],
@@ -52,12 +57,14 @@ export default function Home() {
     <main id="main" tabIndex={-1} className="page home">
       <section className="hero">
         <div className="hero-text">
-          <h1>A quiet room for a game of chess.</h1>
+          <h1 aria-label={TITLE}>
+            {TITLE.split(' ').map((w, i) => <span key={i} aria-hidden="true" className="word" style={{ '--i': i } as CSSProperties}>{w} </span>)}
+          </h1>
           <p className="lede">
             Play a bot now, get paired with whoever is online, or send a friend a link.
             The first two need no account.
           </p>
-          <div className="row">
+          <div className="row stagger">
             <Link className="btn primary" to="/play/bot">Play a bot</Link>
             <Link className="btn secondary" to="/play/quick">Find an opponent</Link>
             <Link className="btn secondary" to="/duel/new">Duel a friend</Link>
@@ -66,7 +73,7 @@ export default function Home() {
         <Demo />
       </section>
 
-      <section className="adds" aria-labelledby="adds-title">
+      <Reveal as="section" className="adds" aria-labelledby="adds-title">
         <h2 id="adds-title">What an account adds</h2>
         <div className="table-wrap">
           <table>
@@ -79,7 +86,7 @@ export default function Home() {
             </thead>
             <tbody>
               {ROWS.map(([what, guest], i) => (
-                <tr key={what}>
+                <tr key={what} style={{ '--i': i } as CSSProperties}>
                   <th scope="row"><span className="sheet-n">{i + 1}.</span>{what}</th>
                   <td>{guest ? 'Yes' : 'No'}</td>
                   <td>Yes</td>
@@ -91,7 +98,7 @@ export default function Home() {
         {user
           ? <Link className="btn primary" to="/duel/new">Duel a friend</Link>
           : <Link className="btn primary" to="/signup">Create account</Link>}
-      </section>
+      </Reveal>
     </main>
   )
 }

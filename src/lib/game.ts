@@ -72,6 +72,14 @@ export function outcome(g: GameRow, me: string, now = Date.now()): 'win' | 'loss
   return r === 'draw' ? 'draw' : r === mine ? 'win' : 'loss'
 }
 
+/** Sounds for one move, in the order they play. */
+export function moveSounds(m: { san: string; captured?: string; promotion?: string }) {
+  const out: ('move' | 'capture' | 'castle' | 'promote' | 'check')[] = [m.san.startsWith('O-O') ? 'castle' : m.captured ? 'capture' : 'move']
+  if (m.promotion) out.push('promote')
+  if (/[+#]$/.test(m.san)) out.push('check')
+  return out
+}
+
 export type Piece = { id: number; type: string; color: Color; square: string; gone?: boolean }
 let nextId = 1
 

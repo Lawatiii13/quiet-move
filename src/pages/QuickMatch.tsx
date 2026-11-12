@@ -4,6 +4,7 @@ import { ErrorNote, GameLayout, useChess } from '../components/GameLayout'
 import { saveSeat, type Seat } from '../lib/net'
 import type { Color } from '../lib/game'
 import { guestName, supabase, useAccount } from '../lib/supabase'
+import { play } from '../lib/sound'
 
 type Waiting = { id: string; name: string; account: boolean; since: number }
 
@@ -27,6 +28,7 @@ export default function QuickMatch() {
 
     const begin = (seat: Seat) => {
       done = true
+      play('found')
       saveSeat(seat)
       navigate(`/game/${seat.id}`, { replace: true })
     }

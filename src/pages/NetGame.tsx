@@ -5,6 +5,8 @@ import { ConfirmDialog, ErrorNote, GameLayout, useChess, useTitle } from '../com
 import { START_MS, boardResult, other, reportValue, resultText, type Color, type Result } from '../lib/game'
 import { loadSeat, loadState, saveSeat, saveState, type Seat } from '../lib/net'
 import { guestName, supabase, useAccount } from '../lib/supabase'
+import { confetti } from '../lib/motion'
+import { play } from '../lib/sound'
 
 /** Creates a duel for the signed-in player and moves on to its game page, which doubles as the invite link. */
 export function NewDuel() {
@@ -127,6 +129,8 @@ function Room({ seat }: { seat: Seat }) {
       st.turnStart = null
       persist()
       render()
+      play(r.winner === me ? 'win' : r.winner ? 'lose' : 'draw')
+      if (r.winner === me) confetti()
     }
     function afterMove() {
       persist()
@@ -141,7 +145,7 @@ function Room({ seat }: { seat: Seat }) {
       if (o) {
         st.oppName = String(o.name).slice(0, 24)
         // White's clock starts the first time both players are in the room.
-        if (!st.turnStart && !chess.history().length && !st.result) st.turnStart = Date.now()
+        if (!st.turnStart && !chess.history().length && !st.result) { st.turnStart = Date.now(); play('start') }
         persist()
         send('sync', snapshot())
       }
@@ -177,7 +181,7 @@ function Room({ seat }: { seat: Seat }) {
       .on('broadcast', { event: 'flag' }, () => finish({ winner: me, reason: 'time' }))
       .on('broadcast', { event: 'draw' }, ({ payload: p }) => {
         if (st.result) return
-        if (p.a === 'offer') st.offer = 'received'
+        if (p.a === 'offer') { st.offer = 'received'; play('notify') }
         else if (p.a === 'accept' && st.offer === 'sent') return finish({ winner: null, reason: 'agreed' })
         else if (p.a === 'decline' && st.offer === 'sent') st.offer = 'declined'
         render()
@@ -189,10 +193,15 @@ function Room({ seat }: { seat: Seat }) {
       })
 
     let ticks = 0
+    let lastSecond = 99
     const timer = setInterval(() => {
       if (!st.result && st.turnStart) {
         const turn = chess.turn()
         const left = st.clock[turn] - (Date.now() - st.turnStart)
+        // Count the last ten seconds of your own clock out loud.
+        const sec = Math.ceil(left / 1000)
+        if (turn === me && sec <= 10 && sec > 0 && sec !== lastSecond) play('tick')
+        lastSecond = sec
         if (turn === me && left <= 0) {
           st.clock[me] = 0
           send('flag')

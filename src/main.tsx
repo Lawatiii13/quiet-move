@@ -6,6 +6,7 @@ import '@fontsource/libre-caslon-text/400.css'
 import '@fontsource-variable/source-sans-3'
 import './styles.css'
 import { SessionContext, supabase } from './lib/supabase'
+import { play } from './lib/sound'
 import { Shell } from './components/Shell'
 import { useTitle } from './components/GameLayout'
 import Home from './pages/Home'
@@ -53,5 +54,10 @@ function App() {
     </SessionContext.Provider>
   )
 }
+
+// One listener gives every link and button a click sound. Board squares have their own sounds.
+document.addEventListener('click', e => {
+  if ((e.target as Element).closest?.('a, button:not(.sq), label.choice')) play('click')
+}, true)
 
 createRoot(document.getElementById('root')!).render(<App />)

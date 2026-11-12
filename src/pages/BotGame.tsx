@@ -4,6 +4,8 @@ import { ConfirmDialog, ErrorNote, GameLayout, useChess } from '../components/Ga
 import { BOTS, startBot } from '../lib/bot'
 import { boardResult, other, reportValue, resultText, type Color, type Result } from '../lib/game'
 import { guestName, supabase, useAccount } from '../lib/supabase'
+import { confetti } from '../lib/motion'
+import { play } from '../lib/sound'
 
 const remembered = () => {
   try { return localStorage.getItem('qm:bot') } catch { return null }
@@ -38,11 +40,14 @@ export default function BotGame() {
     setSaved('no')
     boot()
     setPhase('play')
+    play('start')
   }
 
   async function finish(r: Result) {
     setResult(r)
     setThinking(false)
+    play(r.winner === color ? 'win' : r.winner ? 'lose' : 'draw')
+    if (r.winner === color) confetti()
     if (!user) return
     const id = crypto.randomUUID()
     const { error } = await supabase.from('games').insert({ id, kind: 'bot', bot: level.name, [color === 'w' ? 'white' : 'black']: user.id })

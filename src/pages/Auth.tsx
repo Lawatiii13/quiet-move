@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { ErrorNote, useTitle } from '../components/GameLayout'
 import { supabase, useAccount } from '../lib/supabase'
+import { calm } from '../lib/motion'
+import { play } from '../lib/sound'
 
 type Field = 'username' | 'email' | 'password'
 
@@ -29,6 +31,12 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
   const [sent, setSent] = useState(false)
   const [show, setShow] = useState(false)
   const form = useRef<HTMLFormElement>(null)
+  const card = useRef<HTMLDivElement>(null)
+  // A refused form shakes its head and sounds the error note.
+  function refuse() {
+    play('error')
+    if (!calm()) card.current?.animate({ transform: ['none', 'translateX(-10px)', 'translateX(9px)', 'translateX(-6px)', 'translateX(4px)', 'none'] }, { duration: 420 })
+  }
   const fields: Field[] = signup ? ['username', 'email', 'password'] : ['email', 'password']
 
   useEffect(() => { if (user) navigate(next, { replace: true }) }, [user])
@@ -48,7 +56,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
     setFormError('')
     setTechnical('')
     const first = fields.find(f => found[f])
-    if (first) return form.current?.querySelector<HTMLInputElement>(`#${first}`)?.focus()
+    if (first) { refuse(); return form.current?.querySelector<HTMLInputElement>(`#${first}`)?.focus() }
 
     setBusy(true)
     try {
@@ -56,6 +64,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
         const taken = await supabase.from('profiles').select('id').ilike('username', values.username.replace(/_/g, '\\_')).maybeSingle()
         if (taken.error) throw taken.error
         if (taken.data) {
+          refuse()
           setErrors({ username: 'That username is taken. Try another one.' })
           return form.current?.querySelector<HTMLInputElement>('#username')?.focus()
         }
@@ -65,13 +74,16 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
           options: { data: { username: values.username }, emailRedirectTo: location.origin + location.pathname },
         })
         if (error) throw error
-        if (data.user?.identities?.length === 0) return setFormError('That email already has an account. Log in with it, or use a different email.')
+        if (data.user?.identities?.length === 0) { refuse(); return setFormError('That email already has an account. Log in with it, or use a different email.') }
+        play('success')
         if (!data.session) setSent(true)
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email: values.email, password: values.password })
         if (error) throw error
+        play('success')
       }
     } catch (err) {
+      refuse()
       const msg = err instanceof Error ? err.message : ''
       setFormError(
         /invalid login/i.test(msg) ? "That email and password don't match an account. Check both and log in again."
@@ -93,7 +105,7 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
 
   return (
     <main id="main" tabIndex={-1} className="auth">
-      <div className="card">
+      <div className="card" ref={card}>
         <Link to="/" className="wordmark">Quiet Move</Link>
         {sent ? (
           <>
@@ -109,8 +121,8 @@ export default function Auth({ mode }: { mode: 'login' | 'signup' }) {
               : next === '/stats' ? <p>Log in to see your stats.</p> : null}
             <p className="hint">All fields are required.</p>
             <form ref={form} onSubmit={submit} noValidate>
-              {fields.map(f => (
-                <div key={f} className="field">
+              {fields.map((f, i) => (
+                <div key={f} className="field" style={{ '--i': i } as CSSProperties}>
                   <label htmlFor={f}>{labels[f]}</label>
                   <div className="row tight">
                     <input

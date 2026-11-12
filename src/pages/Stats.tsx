@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { ErrorNote, useTitle } from '../components/GameLayout'
 import { outcome, type GameRow } from '../lib/game'
 import { supabase, useAccount } from '../lib/supabase'
+import { CountUp } from '../lib/motion'
 
 type Row = GameRow & { w: { username: string } | null; b: { username: string } | null }
 const WORD = { win: 'Win', loss: 'Loss', draw: 'Draw' }
@@ -65,10 +66,10 @@ export default function Stats() {
       ) : (
         <>
           <dl className="tiles" aria-busy={pending}>
-            {tiles.map(([label, value]) => (
-              <div key={label} className="tile">
+            {tiles.map(([label, value], i) => (
+              <div key={label} className="tile" style={{ '--i': i } as CSSProperties}>
                 <dt>{label}</dt>
-                <dd>{pending ? <span className="skel" /> : value}</dd>
+                <dd>{pending ? <span className="skel" /> : <CountUp value={value} />}</dd>
               </div>
             ))}
           </dl>
@@ -97,11 +98,11 @@ export default function Stats() {
                     </td>
                   </tr>
                 )}
-                {rows?.slice(0, 20).map(g => {
+                {rows?.slice(0, 20).map((g, i) => {
                   const white = g.white === me
                   const o = outcome(g, me)
                   return (
-                    <tr key={g.id}>
+                    <tr key={g.id} className="row-in" style={{ '--i': i } as CSSProperties}>
                       <td>{new Date(g.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</td>
                       <td>{g.kind === 'bot' ? `${g.bot} (bot)` : (white ? g.b : g.w)?.username ?? 'Deleted account'}</td>
                       <td>{white ? 'White' : 'Black'}</td>
