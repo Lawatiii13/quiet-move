@@ -114,7 +114,7 @@ export function GameLayout({ title, chess, orientation, movable, onMove, top, bo
       </div>
       {!idle && <Strip side={upper} area="strip-top" {...mat[upper.color]} />}
       <div className="board-wrap">
-        {evalWhite != null && (
+        {evalWhite != null && !past && (
           <div className={cls('evalbar', o === 'b' && 'flip')} role="img" aria-label={`Engine estimate: White ${Math.round(evalWhite)} in 100`}>
             <i style={{ transform: `scaleY(${evalWhite / 100})` }} />
           </div>

@@ -1,7 +1,8 @@
 // The course. Every position and answer here is checked by lessons.test.ts.
+import { Chess } from 'chess.js'
 
 export type Step = {
-  /** Position in FEN. White is always the learner. */
+  /** Position in FEN, with the learner to move when the step asks for a move. */
   fen: string
   text: string
   /** Leave out for a step that is only read. Otherwise the moves (in SAN) that count, or 'mate' for any checkmate. */
@@ -15,11 +16,39 @@ export type Step = {
   /** True when the position is meant to be stalemate (checked by the test). */
   stalemate?: boolean
 }
-export type Lesson = { id: string; title: string; summary: string; steps: Step[] }
+/** `side` is the colour the learner plays; White when left out. */
+export type Lesson = { id: string; title: string; summary: string; side?: 'w' | 'b'; steps: Step[] }
 export type Chapter = { title: string; lessons: Lesson[] }
 
 const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 const ITALIAN = 'r1bqk1nr/pppp1ppp/2n5/2b1p3/2B1P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 4 4'
+
+/**
+ * An opening as a lesson: the learner plays one side's moves from the starting position and the
+ * other side's replies appear by themselves. `plies` is the whole line; `why` has one sentence per
+ * learner move. An illegal move in a line throws here, which fails the tests.
+ */
+function opening(o: { id: string; title: string; name: string; summary: string; side: 'w' | 'b'; intro: string; plies: string[]; why: string[]; outro: string }): Lesson {
+  const chess = new Chess()
+  const steps: Step[] = [{ fen: chess.fen(), text: o.intro }]
+  const them = o.side === 'w' ? 'Black' : 'White'
+  let mine = 0
+  o.plies.forEach((san, i) => {
+    if ((i % 2 === 0) !== (o.side === 'w')) { chess.move(san); return }
+    const fen = chess.fen()
+    const m = chess.move(san)
+    steps.push({
+      fen,
+      text: i === 0 ? `Play the first move of ${o.name}.` : `${them} played ${o.plies[i - 1]}. Play the next move of ${o.name}.`,
+      accept: [m.san],
+      right: o.why[mine++],
+      wrong: `In ${o.name} the move here is ${m.san}.`,
+      arrow: [m.from, m.to],
+    })
+  })
+  steps.push({ fen: chess.fen(), text: o.outro })
+  return { id: o.id, title: o.title, summary: o.summary, side: o.side, steps }
+}
 
 export const COURSE: Chapter[] = [
   {
@@ -174,6 +203,140 @@ export const COURSE: Chapter[] = [
           { fen: 'r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4', text: 'The scholar\'s mate catches beginners in four moves. The queen and bishop both aim at f7, the square only the black king protects. Black has just missed it. Deliver the mate.', accept: 'mate', right: 'Qxf7#. Remember the pattern, so that nobody plays it against you.', wrong: 'Both your queen and your bishop attack f7. Capture there with the queen.', arrow: ['h5', 'f7'] },
         ],
       },
+    ],
+  },
+  {
+    title: 'Openings for White',
+    lessons: [
+      opening({
+        id: 'italian', title: 'The Italian Game', name: 'the Italian Game', side: 'w',
+        summary: 'Fast development with the bishop aimed at f7.',
+        intro: 'The Italian Game is one of the oldest openings and a good first one to learn. White develops quickly, points a bishop at Black\'s weakest square, and builds a pawn centre afterwards. You play White.',
+        plies: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'c3', 'Nf6', 'd3'],
+        why: [
+          'A centre pawn. It opens lines for your queen and your king\'s bishop.',
+          'The knight develops and attacks the pawn on e5.',
+          'This move gives the opening its name. The bishop aims at f7, which only the black king protects.',
+          'The pawn prepares d4, to build a broad centre.',
+          'Black attacked your e4 pawn, and this protects it. You will castle next and push d4 later.',
+        ],
+        outro: 'This is the quiet line of the Italian Game. Your plan from here: castle, finish developing, and push the pawn to d4 when it is well supported.',
+      }),
+      opening({
+        id: 'ruy-lopez', title: 'The Ruy Lopez', name: 'the Ruy Lopez', side: 'w',
+        summary: 'Pressure on the knight that guards e5.',
+        intro: 'The Ruy Lopez is named after a Spanish priest who wrote about it in 1561, and it is still played at every level. It starts like the Italian Game, but the bishop goes one square further. You play White.',
+        plies: ['e4', 'e5', 'Nf3', 'Nc6', 'Bb5', 'a6', 'Ba4', 'Nf6', 'O-O', 'Be7'],
+        why: [
+          'The king\'s pawn takes its share of the centre.',
+          'The knight attacks e5 and makes castling one move closer.',
+          'The Ruy Lopez. The bishop attacks the knight that defends the pawn on e5.',
+          'The bishop steps back and keeps watching the knight. Capturing on c6 is playable too, but most players keep the bishop.',
+          'Your king is safe and the rook can go to e1. If Black takes the pawn on e4, you win it back with Re1 or d4.',
+        ],
+        outro: 'The main line of the Ruy Lopez. Your usual plan: rook to e1, pawn to c3, then pawn to d4 for a full centre.',
+      }),
+      opening({
+        id: 'queens-gambit', title: 'The Queen\'s Gambit', name: 'the Queen\'s Gambit', side: 'w',
+        summary: 'A side pawn offered to win the centre.',
+        intro: 'In the Queen\'s Gambit White offers a pawn on the second move. Black can take it, but cannot comfortably keep it, and while Black is busy White takes over the centre. Here Black declines the pawn. You play White.',
+        plies: ['d4', 'd5', 'c4', 'e6', 'Nc3', 'Nf6', 'Bg5', 'Be7', 'e3'],
+        why: [
+          'The queen\'s pawn. Unlike the king\'s pawn, it is protected from the start, by the queen.',
+          'The gambit. Your c-pawn attacks d5 and tries to pull that pawn away from the centre.',
+          'The knight adds a second attacker on d5.',
+          'The bishop pins the knight to the queen. That knight is one of the defenders of d5.',
+          'The pawn supports d4 and lets your king\'s bishop out. Your other bishop is already outside the pawn chain.',
+        ],
+        outro: 'The Queen\'s Gambit Declined. You have more space in the centre. Next come the knight to f3, the bishop to d3 and castling.',
+      }),
+      opening({
+        id: 'london', title: 'The London System', name: 'the London System', side: 'w',
+        summary: 'One set-up that works against almost anything.',
+        intro: 'The London System is a set-up more than a line of moves: White puts the pieces on the same squares against nearly every defence. That makes it easy to learn. You play White.',
+        plies: ['d4', 'd5', 'Bf4', 'Nf6', 'e3', 'e6', 'Nf3', 'c5', 'c3'],
+        why: [
+          'The queen\'s pawn, protected by the queen.',
+          'The London move. The bishop comes out before the pawn goes to e3, so it is not shut in behind it.',
+          'Solid support for d4, and your other bishop can now develop.',
+          'The knight develops and watches the square e5.',
+          'Black attacked d4 with the c-pawn. Now two pawns hold it: the triangle c3, d4, e3 is the mark of the London.',
+        ],
+        outro: 'The London set-up is nearly complete. Next: bishop to d3, knight to d2, and castle.',
+      }),
+    ],
+  },
+  {
+    title: 'Openings for Black',
+    lessons: [
+      opening({
+        id: 'scholars-defence', title: 'Stopping the scholar\'s mate', name: 'this defence', side: 'b',
+        summary: 'Calm answers to the early queen attack.',
+        intro: 'Many beginners bring the queen out at once and aim for a quick mate on f7. It only works if you miss it. Each threat has a simple answer that also develops a piece. You play Black.',
+        plies: ['e4', 'e5', 'Qh5', 'Nc6', 'Bc4', 'g6', 'Qf3', 'Nf6'],
+        why: [
+          'A centre pawn of your own.',
+          'The queen attacked your pawn on e5. The knight defends it and develops.',
+          'White threatened Qxf7, checkmate. The pawn blocks the queen\'s line and attacks her.',
+          'The same threat again, this time from f3. The knight blocks it and develops.',
+        ],
+        outro: 'The attack is over. White\'s queen has moved twice, and in that time you developed both knights. Next: bishop to g7 and castle.',
+      }),
+      opening({
+        id: 'sicilian', title: 'The Sicilian Defence', name: 'the Sicilian Defence', side: 'b',
+        summary: 'The fighting answer to the king\'s pawn.',
+        intro: 'The Sicilian Defence answers the king\'s pawn from the side instead of copying it. The positions are unbalanced, and both players get chances to win. This is the Najdorf line. You play Black.',
+        plies: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'],
+        why: [
+          'The Sicilian. Your c-pawn fights for the square d4 from the side.',
+          'The pawn controls e5 and opens the diagonal for your bishop on c8.',
+          'You trade a side pawn for a centre pawn. In return you get a half-open c-file for a rook.',
+          'The knight develops with an attack on the pawn on e4.',
+          'The Najdorf move. It keeps White\'s pieces off b5 and prepares the advance of your own b-pawn.',
+        ],
+        outro: 'The Najdorf Sicilian. You have an extra pawn in the centre and play on the queen\'s side. White has more space and is ahead in development.',
+      }),
+      opening({
+        id: 'french', title: 'The French Defence', name: 'the French Defence', side: 'b',
+        summary: 'A solid wall, then a counter-attack on the centre.',
+        intro: 'In the French Defence Black lets White have the centre for one move, then attacks it at once. The game often turns on White\'s pawn chain. You play Black.',
+        plies: ['e4', 'e6', 'd4', 'd5', 'Nc3', 'Nf6', 'Bg5', 'Be7'],
+        why: [
+          'The French. This pawn prepares d5 on the next move.',
+          'Now you attack the pawn on e4, and your own pawn is fully supported.',
+          'A second attacker on e4.',
+          'The bishop breaks the pin on your knight.',
+        ],
+        outro: 'The Classical French. Your usual plan is to hit White\'s centre with the c-pawn. The bishop on c8 is hard to bring out, which is the price of this defence.',
+      }),
+      opening({
+        id: 'caro-kann', title: 'The Caro-Kann Defence', name: 'the Caro-Kann', side: 'b',
+        summary: 'Like the French, with a free bishop.',
+        intro: 'The Caro-Kann has the same idea as the French Defence: support the pawn on d5. It uses the c-pawn to do it, which leaves the diagonal of the c8 bishop open. You play Black.',
+        plies: ['e4', 'c6', 'd4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Bf5', 'Ng3', 'Bg6'],
+        why: [
+          'The Caro-Kann. This pawn prepares d5.',
+          'You attack e4 with a pawn that is fully supported.',
+          'You release the tension in the centre.',
+          'The bishop comes out with an attack on the knight, before your pawn goes to e6.',
+          'The bishop steps away from the knight and stays on its diagonal.',
+        ],
+        outro: 'The Classical Caro-Kann. Your position is solid. Next come the knights to d7 and f6 and the pawn to e6.',
+      }),
+      opening({
+        id: 'kings-indian', title: 'The King\'s Indian Defence', name: 'the King\'s Indian Defence', side: 'b',
+        summary: 'Let White build a centre, then attack it.',
+        intro: 'In the King\'s Indian Defence Black does not fight for the centre with pawns at first. Black develops, castles, and strikes at White\'s big centre afterwards. You play Black.',
+        plies: ['d4', 'Nf6', 'c4', 'g6', 'Nc3', 'Bg7', 'e4', 'd6', 'Nf3', 'O-O'],
+        why: [
+          'The knight stops White\'s pawn from going to e4 for now.',
+          'This prepares a place for the bishop on the long diagonal.',
+          'From g7 the bishop points across the whole board at White\'s centre.',
+          'You let White build the centre, and this pawn gets ready to support a strike at it.',
+          'Your king is safe behind the bishop.',
+        ],
+        outro: 'The King\'s Indian Defence. White holds the centre for now. Your plan is to attack it with the pawn to e5, and often to attack on the king\'s side later.',
+      }),
     ],
   },
 ]

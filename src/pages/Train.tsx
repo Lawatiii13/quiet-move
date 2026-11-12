@@ -15,7 +15,7 @@ export default function Train() {
   return (
     <main id="main" tabIndex={-1} className="page train">
       <h1>Train</h1>
-      <p className="lede">Learn the rules one short lesson at a time, then practise against a bot while a coach grades every move you make.</p>
+      <p className="lede">Learn the rules one short lesson at a time, go through the main openings for both colours, then practise against a bot while a coach grades every move you make.</p>
 
       <div className="train-top">
         <div>
@@ -88,6 +88,7 @@ function Player({ lesson }: { lesson: Lesson }) {
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined)
   const last = n === lesson.steps.length - 1
   const following = LESSONS[LESSONS.indexOf(lesson) + 1]
+  const side = lesson.side ?? 'w'
 
   useEffect(() => {
     game.load(step.fen)
@@ -122,8 +123,8 @@ function Player({ lesson }: { lesson: Lesson }) {
       title={lesson.title}
       chess={game.chess}
       fen={game.fen}
-      orientation="w"
-      movable={task && state !== 'right' && !done ? 'w' : null}
+      orientation={side}
+      movable={task && state !== 'right' && !done ? side : null}
       onMove={onMove}
       top={{ name: 'Black', color: 'b' }}
       bottom={{ name: 'You', color: 'w' }}

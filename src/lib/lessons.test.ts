@@ -15,7 +15,7 @@ test('every lesson step is a legal position with answers that do what the text s
       if (step.stalemate) expect(chess.isStalemate(), where).toBe(true)
       if (step.arrow) expect(step.arrow.every(s => /^[a-h][1-8]$/.test(s)), where).toBe(true)
       if (!step.accept) continue
-      expect(chess.turn(), where).toBe('w')
+      expect(chess.turn(), where).toBe(lesson.side ?? 'w')
       expect(step.right && step.wrong, where).toBeTruthy()
       if (step.accept === 'mate') {
         const mates = legal.filter(m => m.endsWith('#'))

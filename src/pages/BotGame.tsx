@@ -39,6 +39,17 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   const [arrow, setArrow] = useState<[string, string] | null>(null)
   const lastEval = useRef(50)
   const [review, setReview] = useState(false)
+  const [coachDown, setCoachDown] = useState(false)
+  const learn = (fen: string) =>
+    analyst.current?.analyse(fen).then(
+      r => { if (r.score) setSeen(s => ({ ...s, [fen]: { best: r.best, pct: winPct(r.score!) } })) },
+      () => setCoachDown(true),
+    )
+  function reloadCoach() {
+    analyst.current?.stop()
+    analyst.current = startAnalyst()
+    setCoachDown(false)
+  }
   const level = BOTS.find(b => b.id === botId)!
   const myTurn = game.chess.turn() === color
 
@@ -97,10 +108,13 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   useEffect(() => {
     setArrow(null)
     const fen = game.fen
-    if (!coach || phase !== 'play' || seen[fen] || game.chess.isGameOver()) return
+    if (!coach || phase !== 'play' || coachDown || seen[fen] || game.chess.isGameOver()) return
     // Not cancelled when the position changes: a late answer is still the "before" of the move just played.
-    analyst.current?.analyse(fen).then(r => { if (r.score) setSeen(s => ({ ...s, [fen]: { best: r.best, pct: winPct(r.score!) } })) }, () => {})
-  }, [coach, phase, game.fen])
+    learn(fen)
+    // A fast mover can leave a position before the coach has seen it; catch up on the move just played.
+    const prev = game.chess.history({ verbose: true }).at(-1)
+    if (prev && !seen[prev.before]) learn(prev.before)
+  }, [coach, phase, game.fen, coachDown])
 
   const moves = game.chess.history({ verbose: true })
   const marks = moves.map(m => {
@@ -123,13 +137,12 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
   const mineCount = moves.filter(m => m.color === color).length
   const graded = marks.filter(Boolean).length
   useEffect(() => {
-    if (!review) return
+    if (!review || coachDown) return
     analyst.current ??= startAnalyst()
     for (const fen of new Set(moves.flatMap(m => [m.before, m.after]))) {
-      if (seen[fen] || finished(fen) !== null) continue
-      analyst.current.analyse(fen).then(r => { if (r.score) setSeen(s => ({ ...s, [fen]: { best: r.best, pct: winPct(r.score!) } })) }, () => {})
+      if (!seen[fen] && finished(fen) === null) learn(fen)
     }
-  }, [review])
+  }, [review, coachDown])
 
   function takeBack(showBest: boolean) {
     if (!judged) return
@@ -203,7 +216,12 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
               {status}
             </p>
           )}
-          {coach && judged && (
+          {coachDown && (
+            <ErrorNote detail="coach engine failed" action={<button type="button" className="btn primary" onClick={reloadCoach}>Reload the coach</button>}>
+              The coach stopped responding, so your moves are not being graded. The game itself is fine: reload the coach to get grades again.
+            </ErrorNote>
+          )}
+          {coach && judged && !coachDown && (
             <div className="note coach" key={judged.after}>
               {grade ? (
                 <>
@@ -235,7 +253,12 @@ export default function BotGame({ coach = false }: { coach?: boolean }) {
       {result && (
         <div className="result">
           <p className="result-text">{resultText(result)}</p>
-          {review && graded < mineCount && <p className="status"><span className="busy" aria-hidden="true" />The coach has graded {graded} of your {mineCount} moves.</p>}
+          {review && coachDown && (
+            <ErrorNote detail="coach engine failed during review" action={<button type="button" className="btn primary" onClick={reloadCoach}>Reload the coach</button>}>
+              The coach stopped responding, so the review is not finished. Reload the coach to grade the remaining moves.
+            </ErrorNote>
+          )}
+          {review && !coachDown && graded < mineCount && <p className="status"><span className="busy" aria-hidden="true" />The coach has graded {graded} of your {mineCount} moves.</p>}
           {review && graded === mineCount && <p className="hint">Select a move in the list to see it on the board with its grade.</p>}
           {(coach || review) && (
             <p className="tally">

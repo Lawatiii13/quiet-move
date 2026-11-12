@@ -36,7 +36,7 @@ This is enough for personal win and loss totals. It is not enough for ratings or
 
 The Train tab has two parts.
 
-- **Lessons** (`src/lib/lessons.ts`): 18 short lessons in three chapters, from naming the squares to basic checkmates. Each step is a position with a text, and most ask for a move on the board. `src/lib/lessons.test.ts` checks every position and answer with chess.js: the positions are legal, the accepted moves exist, and the mates are mates. Finished lessons are remembered in the browser, so no account is needed.
+- **Lessons** (`src/lib/lessons.ts`): 27 short lessons in five chapters. The first three chapters teach the game, from naming the squares to basic checkmates. The last two teach openings: four for White (Italian, Ruy Lopez, Queen's Gambit, London) and five for Black (stopping the scholar's mate, Sicilian, French, Caro-Kann, King's Indian). An opening lesson is written as a list of moves; the learner plays one side and the replies appear by themselves. Each step is a position with a text, and most ask for a move on the board. `src/lib/lessons.test.ts` checks every position and answer with chess.js: the positions are legal, the accepted moves exist, and the mates are mates. Finished lessons are remembered in the browser, so no account is needed.
 - **Coach** (`/train/coach`): a bot game in which a second, full-strength Stockfish searches every position 12 half-moves deep. Each of your moves gets a grade from how much winning chance it gave away: best (up to 1 point of 100), good (under 5), inaccuracy (under 10), mistake (under 20), blunder (20 or more). The cut-offs are this site's own choice. The coach also offers a hint, a take-back, and an evaluation bar. Coach games are not saved to stats.
 
 ## Study tools on every board
