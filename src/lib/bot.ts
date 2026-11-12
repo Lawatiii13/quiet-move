@@ -1,9 +1,9 @@
 export type BotLevel = { id: string; name: string; about: string; skill: number; go: string }
 
-// No rating numbers: nobody has measured these settings against rated players.
+// Descriptions state the engine settings only: nobody has measured how these play against rated people.
 export const BOTS: BotLevel[] = [
-  { id: 'beginner', name: 'Beginner', about: 'Stockfish at skill 0 of 20, looking one move ahead. It blunders often.', skill: 0, go: 'depth 1' },
-  { id: 'club', name: 'Club player', about: 'Stockfish at skill 8 of 20. It punishes loose pieces and misses deeper plans.', skill: 8, go: 'movetime 300' },
+  { id: 'beginner', name: 'Beginner', about: 'Stockfish at skill 0 of 20, looking one move ahead.', skill: 0, go: 'depth 1' },
+  { id: 'club', name: 'Club player', about: 'Stockfish at skill 8 of 20, thinking 0.3 seconds per move.', skill: 8, go: 'movetime 300' },
   { id: 'engine', name: 'Full engine', about: 'Stockfish at full skill, thinking one second per move.', skill: 20, go: 'movetime 1000' },
 ]
 
