@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Play chess against bots, get paired with someone online, or duel a friend by link." />
+    <title>Quiet Move: play chess online</title>
+    <script>
+      // Set the saved theme before first paint so the page does not flash.
+      try { document.documentElement.dataset.theme = localStorage.getItem('qm:theme') || 'light' } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
